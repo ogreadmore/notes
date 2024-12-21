@@ -1,0 +1,1217 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cool Sticky Notes</title>
+    <style>
+        /* Reset and base styles */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            cursor: default;
+        }
+
+        #notes-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-origin: 0 0;
+        }
+
+        /* Context menu styles */
+        .context-menu {
+            position: fixed;
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 8px 0;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            user-select: none;
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        .context-menu-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            color: white;
+            transition: background 0.2s;
+            position: relative;
+            white-space: nowrap;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .context-menu-item:hover {
+            background: #3d3d3d;
+        }
+
+        .submenu {
+            position: absolute;
+            left: 100%;
+            top: 0;
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 8px 0;
+            display: none;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            min-width: 200px;
+        }
+
+        .context-menu-item:hover > .submenu {
+            display: block;
+        }
+
+        /* Sticky note styles */
+        .sticky-note {
+            position: absolute;
+            min-width: 200px;
+            min-height: 200px;
+            background: #ffd700;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow 0.3s;
+            cursor: default;
+        }
+
+        .sticky-note:hover {
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .note-header {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 8px;
+            cursor: move;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #333;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        .note-content {
+            flex-grow: 1;
+            padding: 12px;
+            outline: none;
+            border: none;
+            background: transparent;
+            resize: none;
+            font-size: 14px;
+            overflow: auto;
+        }
+
+        .note-content a {
+            color: #0066cc;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        /* Resize handle styles */
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: transparent;
+            cursor: nw-resize;
+        }
+
+        .resize-handle.top-left { top: 0; left: 0; cursor: nw-resize; }
+        .resize-handle.top-right { top: 0; right: 0; cursor: ne-resize; }
+        .resize-handle.bottom-left { bottom: 0; left: 0; cursor: sw-resize; }
+        .resize-handle.bottom-right { bottom: 0; right: 0; cursor: se-resize; }
+
+        .resize-handle.right { top: 50%; right: 0; cursor: e-resize; }
+        .resize-handle.left { top: 50%; left: 0; cursor: w-resize; }
+        .resize-handle.top { top: 0; left: 50%; cursor: n-resize; }
+        .resize-handle.bottom { bottom: 0; left: 50%; cursor: s-resize; }
+
+        /* Color grid styles */
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            padding: 8px;
+        }
+
+        .color-option {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .color-option:hover {
+            border-color: white;
+        }
+
+        /* Formatting button styles */
+        .format-btn {
+            display: block;
+            width: 100%;
+            background: none;
+            color: white;
+            padding: 8px 16px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 14px;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .format-btn:hover {
+            background: #3d3d3d;
+        }
+
+        /* Zoom and font size controls */
+        .zoom-controls, .font-size-controls {
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            color: white;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .zoom-label, .font-size-label {
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .zoom-btn, .font-size-btn {
+            background: #444;
+            border: none;
+            color: white;
+            padding: 6px 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 5px;
+            user-select: none;
+            border-radius: 4px;
+            display: inline-block;
+            line-height: 1;
+            box-sizing: border-box;
+        }
+
+        .zoom-btn:hover, .font-size-btn:hover {
+            background: #555;
+        }
+
+        .font-size-display {
+            width: 50px;
+            background: #333;
+            border: 1px solid #555;
+            color: white;
+            text-align: center;
+            font-size: 14px;
+            margin: 0 5px;
+            border-radius: 4px;
+            user-select: none;
+            line-height: 1;
+            display: inline-block;
+            padding: 4px 0;
+            box-sizing: border-box;
+        }
+
+        /* Adjustments for submenu alignment */
+        .submenu .submenu {
+            left: 100%;
+            top: 0;
+        }
+
+        /* Left-align font size controls */
+        .font-size-controls {
+            justify-content: flex-start;
+        }
+
+        /* URL bar and iframe styles for browser note */
+        .url-bar {
+            width: 100%;
+            padding: 4px;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .note-iframe {
+            flex-grow: 1;
+            border: none;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="notes-container"></div>
+    <script>
+        let maxZIndex = 1;
+        let zoomLevel = 1;
+        let panX = 0;
+        let panY = 0;
+
+        class StickyNote {
+            constructor(data) {
+                // Create the sticky note element
+                this.element = document.createElement('div');
+                this.element.className = 'sticky-note';
+                this.element.style.left = `${data.x}px`;
+                this.element.style.top = `${data.y}px`;
+                this.element.style.width = data.width ? `${data.width}px` : '200px';
+                this.element.style.height = data.height ? `${data.height}px` : '200px';
+                this.element.style.zIndex = maxZIndex++;
+                if (data.color) {
+                    this.element.style.backgroundColor = data.color;
+                }
+
+                // Set the type of the note
+                this.element.dataset.type = data.type || 'regular';
+
+                // Create header
+                const header = document.createElement('div');
+                header.className = 'note-header';
+
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'close-btn';
+                closeBtn.innerHTML = '×';
+                closeBtn.onclick = () => {
+                    this.element.remove();
+                    saveNotes();
+                };
+
+                header.appendChild(document.createElement('span')); // Spacer
+                header.appendChild(closeBtn);
+
+                if (data.type === 'browser') {
+                    // Create URL bar
+                    const urlBar = document.createElement('input');
+                    urlBar.type = 'text';
+                    urlBar.className = 'url-bar';
+                    urlBar.placeholder = 'Enter URL...';
+                    if (data.url) {
+                        urlBar.value = data.url;
+                    }
+
+                    // Create iframe
+                    const iframe = document.createElement('iframe');
+                    iframe.className = 'note-iframe';
+                    iframe.style.flexGrow = '1';
+                    iframe.style.border = 'none';
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    if (data.url) {
+                        iframe.src = data.url;
+                    }
+
+                    // When user presses Enter in the URL bar, load the URL in the iframe
+                    urlBar.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            iframe.src = urlBar.value;
+                            saveNotes();
+                        }
+                    });
+
+                    // Append URL bar and iframe to the content area
+                    const content = document.createElement('div');
+                    content.className = 'note-content';
+                    content.style.display = 'flex';
+                    content.style.flexDirection = 'column';
+                    content.appendChild(urlBar);
+                    content.appendChild(iframe);
+
+                    // Append header and content to the note element
+                    this.element.appendChild(header);
+                    this.element.appendChild(content);
+                } else {
+                    // Create content for regular note
+                    const content = document.createElement('div');
+                    content.className = 'note-content';
+                    content.contentEditable = true;
+                    content.innerHTML = data.content || 'Type your note here...';
+
+                    // Make links clickable
+                    content.addEventListener('click', function(e) {
+                        if (e.target.tagName === 'A') {
+                            e.preventDefault();
+                            window.open(e.target.href, '_blank');
+                        }
+                    });
+
+                    // Save content on change
+                    content.addEventListener('input', () => {
+                        saveNotes();
+                    });
+
+                    // Paste handler to remove background colors and allow images
+                    content.addEventListener('paste', (e) => {
+                        e.preventDefault();
+                        const items = e.clipboardData.items;
+                        let isImage = false;
+                        for (let i = 0; i < items.length; i++) {
+                            if (items[i].type.indexOf('image') !== -1) {
+                                isImage = true;
+                                const blob = items[i].getAsFile();
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                    const img = document.createElement('img');
+                                    img.src = event.target.result;
+                                    document.execCommand('insertHTML', false, img.outerHTML);
+                                    saveNotes();
+                                };
+                                reader.readAsDataURL(blob);
+                            }
+                        }
+                        if (!isImage) {
+                            let text = (e.clipboardData || window.clipboardData).getData('text/html');
+                            if (!text) {
+                                text = (e.clipboardData || window.clipboardData).getData('text');
+                                document.execCommand('insertText', false, text);
+                            } else {
+                                // Remove background-color styles
+                                text = text.replace(/background-color:[^;"]*;?/gi, '');
+                                document.execCommand('insertHTML', false, text);
+                            }
+                            saveNotes();
+                        }
+                    });
+
+                    // Prevent text selection loss on right-click
+                    content.addEventListener('mousedown', (e) => {
+                        if (e.button === 2) { // Right-click
+                            e.preventDefault();
+                        }
+                    });
+
+                    content.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        this.setupContextMenu(e);
+                    });
+
+                    // Append header and content to the note element
+                    this.element.appendChild(header);
+                    this.element.appendChild(content);
+                }
+
+                // Add resize handles
+                const positions = ['top-left', 'top-right', 'bottom-left', 'bottom-right',
+                                   'left', 'right', 'top', 'bottom'];
+                positions.forEach(pos => {
+                    const handle = document.createElement('div');
+                    handle.className = `resize-handle ${pos}`;
+                    this.element.appendChild(handle);
+                });
+
+                // Append to container
+                document.getElementById('notes-container').appendChild(this.element);
+
+                // Bring to front on click
+                this.element.addEventListener('mousedown', () => {
+                    this.element.style.zIndex = maxZIndex++;
+                });
+
+                // Set up dragging
+                this.setupDragging(header);
+                this.setupResizing();
+            }
+
+            setupDragging(header) {
+                let isDragging = false;
+                let currentX;
+                let currentY;
+                let initialX;
+                let initialY;
+
+                header.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    isDragging = true;
+                    initialX = (e.clientX - panX) / zoomLevel - this.element.offsetLeft;
+                    initialY = (e.clientY - panY) / zoomLevel - this.element.offsetTop;
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        e.preventDefault();
+                        currentX = (e.clientX - panX) / zoomLevel - initialX;
+                        currentY = (e.clientY - panY) / zoomLevel - initialY;
+                        this.element.style.left = `${currentX}px`;
+                        this.element.style.top = `${currentY}px`;
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        saveNotes();
+                    }
+                });
+            }
+
+            setupResizing() {
+                const handles = this.element.querySelectorAll('.resize-handle');
+                handles.forEach(handle => {
+                    handle.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        const startX = e.clientX;
+                        const startY = e.clientY;
+                        const startWidth = this.element.offsetWidth;
+                        const startHeight = this.element.offsetHeight;
+                        const startLeft = this.element.offsetLeft;
+                        const startTop = this.element.offsetTop;
+
+                        const onMouseMove = (e) => {
+                            const pos = handle.className.replace('resize-handle ', '');
+                            const dx = (e.clientX - startX) / zoomLevel;
+                            const dy = (e.clientY - startY) / zoomLevel;
+
+                            if (pos.includes('right')) {
+                                this.element.style.width = `${startWidth + dx}px`;
+                            }
+                            if (pos.includes('left')) {
+                                this.element.style.width = `${startWidth - dx}px`;
+                                this.element.style.left = `${startLeft + dx}px`;
+                            }
+                            if (pos.includes('bottom')) {
+                                this.element.style.height = `${startHeight + dy}px`;
+                            }
+                            if (pos.includes('top')) {
+                                this.element.style.height = `${startHeight - dy}px`;
+                                this.element.style.top = `${startTop + dy}px`;
+                            }
+                        };
+
+                        const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                            saveNotes();
+                        };
+
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
+                    });
+                });
+            }
+
+            createColorGrid(colors, callback) {
+                const grid = document.createElement('div');
+                grid.className = 'color-grid';
+
+                colors.forEach(color => {
+                    const colorOption = document.createElement('div');
+                    colorOption.className = 'color-option';
+                    colorOption.style.backgroundColor = color;
+                    colorOption.onclick = (e) => {
+                        e.stopPropagation();
+                        callback(color);
+                    };
+                    grid.appendChild(colorOption);
+                });
+
+                return grid;
+            }
+
+            setupContextMenu(e) {
+                // Save the current selection
+                const sel = window.getSelection();
+                if (sel.rangeCount > 0 && !sel.isCollapsed) {
+                    this.savedSelection = sel.getRangeAt(0).cloneRange();
+                } else {
+                    this.savedSelection = null;
+                }
+
+                const menu = document.createElement('div');
+                menu.className = 'context-menu';
+                menu.style.zIndex = maxZIndex + 1;
+
+                const colorPalette = [
+                    '#ffd700', '#ff7f7f', '#7fff7f', '#7f7fff', '#ff7fff',
+                    '#ffff00', '#00ff00', '#ff0000', '#ffffff', '#f0f0f0',
+                    '#d3d3d3', '#a9a9a9', '#000000', '#333333', '#666666',
+                    '#990000', '#000099', '#009900', '#660099', '#FF6600'
+                ];
+
+                // Note Color Option
+                const noteColorItem = document.createElement('div');
+                noteColorItem.className = 'context-menu-item';
+                noteColorItem.textContent = 'Note Color ►';
+                const noteColorSubmenu = document.createElement('div');
+                noteColorSubmenu.className = 'submenu';
+
+                // Adjusted note colors with fewer greys
+                const noteColors = ['#ffd700', '#ff7f7f', '#7fff7f', '#7f7fff', '#ff7fff', '#ffff00', '#00ff00', '#ff0000', '#a9a9a9', '#ffffff'];
+
+                noteColorSubmenu.appendChild(this.createColorGrid(noteColors, (color) => {
+                    this.element.style.backgroundColor = color;
+                    menu.remove();
+                    saveNotes();
+                }));
+                noteColorItem.appendChild(noteColorSubmenu);
+
+                // Text Formatting Option
+                const formatItem = document.createElement('div');
+                formatItem.className = 'context-menu-item';
+                formatItem.textContent = 'Formatting ►';
+                const formatSubmenu = document.createElement('div');
+                formatSubmenu.className = 'submenu';
+
+                // Formatting Options
+                const formatOptions = [
+                    { label: 'Bold', action: () => this.execCommand('bold') },
+                    { label: 'Italic', action: () => this.execCommand('italic') },
+                    { label: 'H1', action: () => this.execCommand('formatBlock', false, 'h1') },
+                    { label: 'H2', action: () => this.execCommand('formatBlock', false, 'h2') },
+                    { label: 'Link', action: () => {
+                        const selection = window.getSelection();
+                        if (selection.toString()) {
+                            const url = prompt('Enter URL:', 'https://');
+                            if (url) {
+                                this.execCommand('createLink', false, url);
+                            }
+                        } else {
+                            alert('Please select some text first to create a link');
+                        }
+                    }}
+                ];
+
+                formatOptions.forEach(option => {
+                    const btn = document.createElement('div');
+                    btn.className = 'format-btn';
+                    btn.textContent = option.label;
+                    btn.onmousedown = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        option.action();
+                        menu.remove();
+                    };
+                    formatSubmenu.appendChild(btn);
+                });
+
+                // Font Size Controls with Buttons and Display
+                const fontSizeControls = document.createElement('div');
+                fontSizeControls.className = 'font-size-controls';
+
+                const fontSizeLabel = document.createElement('span');
+                fontSizeLabel.className = 'font-size-label';
+                fontSizeLabel.textContent = 'Font Size:';
+
+                const decreaseFontBtn = document.createElement('div');
+                decreaseFontBtn.className = 'font-size-btn';
+                decreaseFontBtn.textContent = '−';
+
+                const fontSizeDisplay = document.createElement('div');
+                fontSizeDisplay.className = 'font-size-display';
+                fontSizeDisplay.contentEditable = true;
+                fontSizeDisplay.spellcheck = false;
+                fontSizeDisplay.textContent = '14'; // default font size
+
+                const increaseFontBtn = document.createElement('div');
+                increaseFontBtn.className = 'font-size-btn';
+                increaseFontBtn.textContent = '+';
+
+                fontSizeControls.appendChild(fontSizeLabel);
+                fontSizeControls.appendChild(decreaseFontBtn);
+                fontSizeControls.appendChild(fontSizeDisplay);
+                fontSizeControls.appendChild(increaseFontBtn);
+
+                formatSubmenu.appendChild(fontSizeControls);
+                formatItem.appendChild(formatSubmenu);
+
+                // Implement click-and-hold functionality
+                let fontInterval;
+
+                const startFontSizeChange = (delta) => {
+                    clearInterval(fontInterval);
+
+                    // Focus on the content area
+                    const content = this.element.querySelector('.note-content');
+                    content.focus();
+
+                    // Update the saved selection
+                    const sel = window.getSelection();
+                    if (sel.rangeCount > 0 && !sel.isCollapsed) {
+                        this.savedSelection = sel.getRangeAt(0).cloneRange();
+                    } else if (this.savedSelection) {
+                        // Use previously saved selection
+                    } else {
+                        // No selection, cannot proceed
+                        return;
+                    }
+
+                    fontInterval = setInterval(() => {
+                        let fontSize = parseInt(fontSizeDisplay.textContent);
+                        if (isNaN(fontSize)) fontSize = 14;
+                        fontSize += delta;
+                        if (fontSize < 1) fontSize = 1;
+                        if (fontSize > 200) fontSize = 200;
+                        fontSizeDisplay.textContent = fontSize;
+
+                        // Restore selection
+                        if (this.savedSelection) {
+                            const sel = window.getSelection();
+                            sel.removeAllRanges();
+                            sel.addRange(this.savedSelection);
+                        }
+                        this.applyFontSize(fontSize);
+                    }, 100);
+
+                    // Stop the interval when mouse is released
+                    const stopOnMouseUp = () => {
+                        clearInterval(fontInterval);
+                        document.removeEventListener('mouseup', stopOnMouseUp);
+                    };
+                    document.addEventListener('mouseup', stopOnMouseUp);
+                };
+
+                decreaseFontBtn.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startFontSizeChange(-1);
+                });
+
+                increaseFontBtn.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startFontSizeChange(1);
+                });
+
+                // Handle direct editing of the font size display
+                fontSizeDisplay.addEventListener('input', (e) => {
+                    e.stopPropagation();
+                    let fontSize = parseInt(fontSizeDisplay.textContent);
+                    if (isNaN(fontSize) || fontSize < 1) {
+                        fontSize = 14;
+                        fontSizeDisplay.textContent = fontSize;
+                    }
+                    if (fontSize > 200) {
+                        fontSize = 200;
+                        fontSizeDisplay.textContent = fontSize;
+                    }
+                    // Focus on the content area
+                    const content = this.element.querySelector('.note-content');
+                    content.focus();
+                    // Update the saved selection
+                    const sel = window.getSelection();
+                    if (sel.rangeCount > 0 && !sel.isCollapsed) {
+                        this.savedSelection = sel.getRangeAt(0).cloneRange();
+                    }
+                    // Restore selection
+                    if (this.savedSelection) {
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(this.savedSelection);
+                    }
+                    this.applyFontSize(fontSize);
+                });
+
+                // Prevent focus from moving away when clicking the font size display
+                fontSizeDisplay.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+
+                // Text Color Option
+                const textColorItem = document.createElement('div');
+                textColorItem.className = 'context-menu-item';
+                textColorItem.textContent = 'Text Color ►';
+                const textColorSubmenu = document.createElement('div');
+                textColorSubmenu.className = 'submenu';
+                textColorSubmenu.appendChild(this.createColorGrid(colorPalette, (color) => {
+                    this.execCommand('styleWithCSS', false, true);
+                    this.execCommand('foreColor', false, color);
+                    menu.remove();
+                }));
+                textColorItem.appendChild(textColorSubmenu);
+
+                // Highlight Color Option
+                const highlightColorItem = document.createElement('div');
+                highlightColorItem.className = 'context-menu-item';
+                highlightColorItem.textContent = 'Highlight Color ►';
+                const highlightColorSubmenu = document.createElement('div');
+                highlightColorSubmenu.className = 'submenu';
+                highlightColorSubmenu.appendChild(this.createColorGrid(colorPalette, (color) => {
+                    this.execCommand('styleWithCSS', false, true);
+                    this.execCommand('hiliteColor', false, color);
+                    menu.remove();
+                }));
+                highlightColorItem.appendChild(highlightColorSubmenu);
+
+                menu.appendChild(noteColorItem);
+                menu.appendChild(formatItem);
+                menu.appendChild(textColorItem);
+                menu.appendChild(highlightColorItem);
+
+                menu.style.left = `${e.pageX}px`;
+                menu.style.top = `${e.pageY}px`;
+                document.body.appendChild(menu);
+
+                const closeMenu = (e) => {
+                    if (!menu.contains(e.target)) {
+                        menu.remove();
+                        document.removeEventListener('mousedown', closeMenu);
+                    }
+                };
+                document.addEventListener('mousedown', closeMenu);
+            }
+
+            applyFontSize(size) {
+                if (this.savedSelection) {
+                    const content = this.element.querySelector('.note-content');
+                    content.focus();
+
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(this.savedSelection);
+
+                    const range = sel.getRangeAt(0);
+
+                    // Create a span element with the desired font size
+                    const span = document.createElement('span');
+                    span.style.fontSize = size + 'px';
+
+                    // Extract the contents of the range
+                    const docFragment = range.extractContents();
+
+                    // Remove existing font-size styles within the fragment
+                    const removeFontSizeStyles = (node) => {
+                        if (node.style) {
+                            node.style.fontSize = '';
+                        }
+                        node.childNodes.forEach(child => removeFontSizeStyles(child));
+                    };
+                    removeFontSizeStyles(docFragment);
+
+                    // Append the contents to the span
+                    span.appendChild(docFragment);
+
+                    // Insert the span back into the range
+                    range.insertNode(span);
+
+                    // Adjust the selection to encompass the new span
+                    sel.removeAllRanges();
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(span);
+                    sel.addRange(newRange);
+                    this.savedSelection = newRange.cloneRange();
+
+                    saveNotes();
+                }
+            }
+
+            execCommand(command, showUI = false, value = null) {
+                const content = this.element.querySelector('.note-content');
+                content.focus();
+                document.execCommand('styleWithCSS', false, true);
+                document.execCommand(command, showUI, value);
+                saveNotes();
+            }
+        }
+
+        // Global context menu
+        document.addEventListener('dblclick', (e) => {
+            if (e.target === document.body || e.target.id === 'notes-container') {
+                e.preventDefault();
+                showContextMenu(e);
+            }
+        });
+
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target === document.body || e.target.id === 'notes-container') {
+                e.preventDefault();
+                showContextMenu(e);
+            }
+        });
+
+        function showContextMenu(e) {
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.style.zIndex = maxZIndex + 1;
+
+            // New Note Option
+            const newNoteItem = document.createElement('div');
+            newNoteItem.className = 'context-menu-item';
+            newNoteItem.textContent = 'New Note';
+            newNoteItem.onclick = () => {
+                const note = new StickyNote({
+                    x: (e.clientX - panX) / zoomLevel,
+                    y: (e.clientY - panY) / zoomLevel
+                });
+                saveNotes();
+                menu.remove();
+            };
+            menu.appendChild(newNoteItem);
+
+            // New Note Browser Option
+            const newNoteBrowserItem = document.createElement('div');
+            newNoteBrowserItem.className = 'context-menu-item';
+            newNoteBrowserItem.textContent = 'New Note Browser';
+            newNoteBrowserItem.onclick = () => {
+                const note = new StickyNote({
+                    x: (e.clientX - panX) / zoomLevel,
+                    y: (e.clientY - panY) / zoomLevel,
+                    type: 'browser'
+                });
+                saveNotes();
+                menu.remove();
+            };
+            menu.appendChild(newNoteBrowserItem);
+
+            // Import CSV Option
+            const importItem = document.createElement('div');
+            importItem.className = 'context-menu-item';
+            importItem.textContent = 'Import CSV';
+            importItem.onclick = () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.csv';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const csvData = event.target.result;
+                            parseAndCreateNotes(csvData);
+                        };
+                        reader.readAsText(file);
+                    }
+                };
+                input.click();
+                menu.remove();
+            };
+            menu.appendChild(importItem);
+
+            // Export CSV Option
+            const exportItem = document.createElement('div');
+            exportItem.className = 'context-menu-item';
+            exportItem.textContent = 'Export CSV';
+            exportItem.onclick = () => {
+                const notes = Array.from(document.querySelectorAll('.sticky-note')).map(note => {
+                    const noteData = {
+                        x: note.offsetLeft,
+                        y: note.offsetTop,
+                        width: note.offsetWidth,
+                        height: note.offsetHeight,
+                        color: note.style.backgroundColor,
+                        type: note.dataset.type || 'regular'
+                    };
+
+                    if (noteData.type === 'browser') {
+                        const urlBar = note.querySelector('.url-bar');
+                        noteData.url = urlBar.value;
+                    } else {
+                        noteData.content = note.querySelector('.note-content').innerHTML;
+                    }
+
+                    return noteData;
+                });
+
+                const csv = 'data:text/csv;charset=utf-8,' +
+                    'Type,Content,URL,X,Y,Width,Height,Color\n' +
+                    notes.map(note =>
+                        `"${note.type}","${(note.content || '').replace(/"/g, '""')}","${(note.url || '').replace(/"/g, '""')}",${note.x},${note.y},${note.width},${note.height},"${note.color}"`
+                    ).join('\n');
+                const link = document.createElement('a');
+                link.href = encodeURI(csv);
+                link.download = 'sticky_notes.csv';
+                link.click();
+                menu.remove();
+            };
+            menu.appendChild(exportItem);
+
+            // Zoom Controls
+            const zoomItem = document.createElement('div');
+            zoomItem.className = 'context-menu-item';
+            zoomItem.textContent = 'Zoom';
+            menu.appendChild(zoomItem);
+
+            const zoomControls = document.createElement('div');
+            zoomControls.className = 'zoom-controls';
+
+            const zoomOutBtn = document.createElement('button');
+            zoomOutBtn.textContent = '−';
+            zoomOutBtn.className = 'zoom-btn';
+
+            const zoomLabel = document.createElement('input');
+            zoomLabel.type = 'text';
+            zoomLabel.value = `${Math.round(zoomLevel * 100)}%`;
+            zoomLabel.className = 'font-size-input'; // Reusing the class for consistent styling
+
+            const zoomInBtn = document.createElement('button');
+            zoomInBtn.textContent = '+';
+            zoomInBtn.className = 'zoom-btn';
+
+            zoomControls.appendChild(zoomOutBtn);
+            zoomControls.appendChild(zoomLabel);
+            zoomControls.appendChild(zoomInBtn);
+            menu.appendChild(zoomControls);
+
+            // Implement holding down the buttons
+            let zoomInterval;
+
+            const startZooming = (direction) => {
+                clearInterval(zoomInterval);
+                zoomInterval = setInterval(() => {
+                    const oldZoomLevel = zoomLevel;
+                    if (direction === 'in') {
+                        zoomLevel *= 1.02;
+                        if (zoomLevel > 10) zoomLevel = 10;
+                    } else {
+                        zoomLevel /= 1.02;
+                        if (zoomLevel < 0.1) zoomLevel = 0.1;
+                    }
+                    // Update panX and panY to zoom towards the center
+                    panX = panX - (window.innerWidth / 2 - panX) * (zoomLevel / oldZoomLevel - 1);
+                    panY = panY - (window.innerHeight / 2 - panY) * (zoomLevel / oldZoomLevel - 1);
+                    updateZoom();
+                    zoomLabel.value = `${Math.round(zoomLevel * 100)}%`;
+                }, 50);
+
+                // Stop zooming when mouse is released
+                const stopZooming = () => {
+                    clearInterval(zoomInterval);
+                    document.removeEventListener('mouseup', stopZooming);
+                };
+                document.addEventListener('mouseup', stopZooming);
+            };
+
+            zoomInBtn.addEventListener('mousedown', () => startZooming('in'));
+            zoomOutBtn.addEventListener('mousedown', () => startZooming('out'));
+
+            // Handle direct input of zoom level
+            zoomLabel.addEventListener('input', () => {
+                let zoomValue = parseFloat(zoomLabel.value);
+                if (isNaN(zoomValue) || zoomValue < 10) zoomValue = 10;
+                if (zoomValue > 1000) zoomValue = 1000;
+                const oldZoomLevel = zoomLevel;
+                zoomLevel = zoomValue / 100;
+
+                // Update panX and panY to zoom towards the center
+                panX = panX - (window.innerWidth / 2 - panX) * (zoomLevel / oldZoomLevel - 1);
+                panY = panY - (window.innerHeight / 2 - panY) * (zoomLevel / oldZoomLevel - 1);
+
+                updateZoom();
+            });
+
+            function updateZoom() {
+                const container = document.getElementById('notes-container');
+                container.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+                saveZoomLevel();
+            }
+
+            menu.style.left = `${e.pageX}px`;
+            menu.style.top = `${e.pageY}px`;
+            document.body.appendChild(menu);
+
+            const closeMenu = (e) => {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', closeMenu);
+                }
+            };
+            document.addEventListener('click', closeMenu);
+        }
+
+        function parseAndCreateNotes(csvData) {
+            const lines = csvData.split('\n');
+            // Remove the header
+            lines.shift();
+            lines.forEach(line => {
+                // Skip empty lines
+                if (line.trim() === '') return;
+
+                // Regex to parse CSV line
+                const regex = /^"([^"]*)","((?:[^"]|"")*)","((?:[^"]|"")*)",(\d+),(\d+),(\d+),(\d+),"((?:[^"]|"")*)"$/;
+                const match = line.match(regex);
+                if (match) {
+                    let type = match[1];
+                    let content = match[2].replace(/""/g, '"');
+                    let url = match[3].replace(/""/g, '"');
+                    let x = parseInt(match[4]);
+                    let y = parseInt(match[5]);
+                    let width = parseInt(match[6]);
+                    let height = parseInt(match[7]);
+                    let color = match[8].replace(/""/g, '"');
+
+                    const noteData = {
+                        x: x,
+                        y: y,
+                        width: width,
+                        height: height,
+                        color: color,
+                        type: type
+                    };
+
+                    if (type === 'browser') {
+                        noteData.url = url;
+                    } else {
+                        noteData.content = content;
+                    }
+
+                    new StickyNote(noteData);
+                    saveNotes();
+                }
+            });
+        }
+
+        function saveNotes() {
+            const notesData = Array.from(document.querySelectorAll('.sticky-note')).map(note => {
+                const noteData = {
+                    x: note.offsetLeft,
+                    y: note.offsetTop,
+                    width: note.offsetWidth,
+                    height: note.offsetHeight,
+                    color: note.style.backgroundColor,
+                    type: note.dataset.type || 'regular'
+                };
+
+                if (noteData.type === 'browser') {
+                    const urlBar = note.querySelector('.url-bar');
+                    noteData.url = urlBar.value;
+                } else {
+                    noteData.content = note.querySelector('.note-content').innerHTML;
+                }
+
+                return noteData;
+            });
+            localStorage.setItem('stickyNotes', JSON.stringify(notesData));
+        }
+
+        function loadNotes() {
+            const notesData = JSON.parse(localStorage.getItem('stickyNotes') || '[]');
+            notesData.forEach(data => {
+                new StickyNote(data);
+            });
+        }
+
+        function saveZoomLevel() {
+            localStorage.setItem('zoomLevel', zoomLevel);
+            localStorage.setItem('panX', panX);
+            localStorage.setItem('panY', panY);
+        }
+
+        function loadZoomLevel() {
+            const savedZoomLevel = parseFloat(localStorage.getItem('zoomLevel'));
+            const savedPanX = parseFloat(localStorage.getItem('panX'));
+            const savedPanY = parseFloat(localStorage.getItem('panY'));
+            if (!isNaN(savedZoomLevel)) {
+                zoomLevel = savedZoomLevel;
+                panX = savedPanX || 0;
+                panY = savedPanY || 0;
+                const container = document.getElementById('notes-container');
+                container.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+            }
+        }
+
+        // Panning functionality
+        (function() {
+            const container = document.getElementById('notes-container');
+            let isPanning = false;
+            let startX, startY;
+
+            document.addEventListener('mousedown', (e) => {
+                if (e.button === 0 && (e.target === document.body || e.target.id === 'notes-container')) { // Left mouse button
+                    isPanning = true;
+                    document.body.style.cursor = 'grabbing';
+                    startX = e.clientX - panX;
+                    startY = e.clientY - panY;
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isPanning) {
+                    panX = e.clientX - startX;
+                    panY = e.clientY - startY;
+                    container.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isPanning) {
+                    isPanning = false;
+                    document.body.style.cursor = 'default';
+                    saveZoomLevel();
+                }
+            });
+
+            document.addEventListener('mouseleave', () => {
+                if (isPanning) {
+                    isPanning = false;
+                    document.body.style.cursor = 'default';
+                    saveZoomLevel();
+                }
+            });
+
+            // Change cursor to grab when hovering over background
+            document.addEventListener('mousemove', (e) => {
+                if (!isPanning) {
+                    if (e.target === document.body || e.target.id === 'notes-container') {
+                        document.body.style.cursor = 'grab';
+                    } else {
+                        document.body.style.cursor = 'default';
+                    }
+                }
+            });
+        })();
+
+        // Mouse wheel zooming
+        (function() {
+            const container = document.getElementById('notes-container');
+            document.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const oldZoomLevel = zoomLevel;
+                const delta = -e.deltaY || e.wheelDelta;
+                if (delta > 0) {
+                    zoomLevel *= 1.05;
+                    if (zoomLevel > 10) zoomLevel = 10;
+                } else {
+                    zoomLevel /= 1.05;
+                    if (zoomLevel < 0.1) zoomLevel = 0.1;
+                }
+
+                // Calculate the mouse position relative to the container before zoom
+                const rect = container.getBoundingClientRect();
+                const offsetX = (e.clientX - rect.left - panX) / oldZoomLevel;
+                const offsetY = (e.clientY - rect.top - panY) / oldZoomLevel;
+
+                // Update panX and panY to zoom towards the mouse position
+                panX = e.clientX - rect.left - offsetX * zoomLevel;
+                panY = e.clientY - rect.top - offsetY * zoomLevel;
+
+                container.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+                saveZoomLevel();
+
+                // Update zoom label if menu is open
+                const zoomLabel = document.querySelector('.zoom-label');
+                if (zoomLabel) {
+                    zoomLabel.value = `${Math.round(zoomLevel * 100)}%`;
+                }
+            }, { passive: false });
+        })();
+
+        // Load notes and zoom level on page load
+        window.onload = () => {
+            loadNotes();
+            loadZoomLevel();
+        };
+    </script>
+</body>
+</html>
