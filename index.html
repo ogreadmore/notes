@@ -557,7 +557,10 @@
                 noteColorSubmenu.className = 'submenu';
 
                 // Adjusted note colors with fewer greys
-                const noteColors = ['#ffd700', '#ff7f7f', '#7fff7f', '#7f7fff', '#ff7fff', '#ffff00', '#00ff00', '#ff0000', '#a9a9a9', '#ffffff'];
+                const noteColors = [
+                    '#ffd700', '#ff7f7f', '#7fff7f', '#7f7fff', '#ff7fff',
+                    '#ffff00', '#00ff00', '#ff0000', '#a9a9a9', '#ffffff'
+                ];
 
                 noteColorSubmenu.appendChild(this.createColorGrid(noteColors, (color) => {
                     this.element.style.backgroundColor = color;
@@ -850,7 +853,7 @@
             newNoteItem.className = 'context-menu-item';
             newNoteItem.textContent = 'New Note';
             newNoteItem.onclick = () => {
-                const note = new StickyNote({
+                new StickyNote({
                     x: (e.clientX - panX) / zoomLevel,
                     y: (e.clientY - panY) / zoomLevel
                 });
@@ -864,7 +867,7 @@
             newNoteBrowserItem.className = 'context-menu-item';
             newNoteBrowserItem.textContent = 'New Note Browser';
             newNoteBrowserItem.onclick = () => {
-                const note = new StickyNote({
+                new StickyNote({
                     x: (e.clientX - panX) / zoomLevel,
                     y: (e.clientY - panY) / zoomLevel,
                     type: 'browser'
@@ -912,29 +915,118 @@
                         color: note.style.backgroundColor,
                         type: note.dataset.type || 'regular'
                     };
-
                     if (noteData.type === 'browser') {
                         const urlBar = note.querySelector('.url-bar');
                         noteData.url = urlBar.value;
                     } else {
                         noteData.content = note.querySelector('.note-content').innerHTML;
                     }
-
                     return noteData;
                 });
 
-                const csv = 'data:text/csv;charset=utf-8,' +
-                    'Type,Content,URL,X,Y,Width,Height,Color\n' +
-                    notes.map(note =>
-                        `"${note.type}","${(note.content || '').replace(/"/g, '""')}","${(note.url || '').replace(/"/g, '""')}",${note.x},${note.y},${note.width},${note.height},"${note.color}"`
-                    ).join('\n');
+                // Build a CSV string with extra escaping/replacement for line breaks
+                let csvContent = 'Type,Content,URL,X,Y,Width,Height,Color\n';
+                notes.forEach(note => {
+                    let type = (note.type || '')
+                        .replace(/\r?\n/g, ' ')
+                        .replace(/"/g, '""');
+                    let content = (note.content || '')
+                        .replace(/\r?\n/g, ' ')
+                        .replace(/"/g, '""');
+                    let url = (note.url || '')
+                        .replace(/\r?\n/g, ' ')
+                        .replace(/"/g, '""');
+                    let x = note.x;
+                    let y = note.y;
+                    let width = note.width;
+                    let height = note.height;
+                    let color = (note.color || '')
+                        .replace(/\r?\n/g, ' ')
+                        .replace(/"/g, '""');
+
+                    // Each field wrapped in quotes, separated by commas
+                    csvContent += `"${type}","${content}","${url}",${x},${y},${width},${height},"${color}"\n`;
+                });
+
+                // Create downloadable data URI
+                const csv = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
                 const link = document.createElement('a');
-                link.href = encodeURI(csv);
+                link.href = csv;
                 link.download = 'sticky_notes.csv';
                 link.click();
                 menu.remove();
             };
             menu.appendChild(exportItem);
+
+            // **Import JSON Option**
+            const importJsonItem = document.createElement('div');
+            importJsonItem.className = 'context-menu-item';
+            importJsonItem.textContent = 'Import JSON';
+            importJsonItem.onclick = () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = (ev) => {
+                    const file = ev.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                const notesData = JSON.parse(event.target.result);
+                                // Clear existing notes
+                                document.querySelectorAll('.sticky-note').forEach(n => n.remove());
+                                // Recreate notes
+                                notesData.forEach(data => new StickyNote(data));
+                                saveNotes();
+                            } catch (err) {
+                                console.error('Error parsing JSON', err);
+                                alert('Invalid JSON file');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                };
+                input.click();
+                menu.remove();
+            };
+            menu.appendChild(importJsonItem);
+
+            // **Export JSON Option**
+            const exportJsonItem = document.createElement('div');
+            exportJsonItem.className = 'context-menu-item';
+            exportJsonItem.textContent = 'Export JSON';
+            exportJsonItem.onclick = () => {
+                // 1. Gather note data
+                const notes = Array.from(document.querySelectorAll('.sticky-note')).map(note => {
+                    const noteData = {
+                        x: note.offsetLeft,
+                        y: note.offsetTop,
+                        width: note.offsetWidth,
+                        height: note.offsetHeight,
+                        color: note.style.backgroundColor,
+                        type: note.dataset.type || 'regular'
+                    };
+                    if (noteData.type === 'browser') {
+                        const urlBar = note.querySelector('.url-bar');
+                        noteData.url = urlBar.value;
+                    } else {
+                        noteData.content = note.querySelector('.note-content').innerHTML;
+                    }
+                    return noteData;
+                });
+
+                // 2. Convert to JSON
+                const jsonString = JSON.stringify(notes);
+
+                // 3. Make it downloadable
+                const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(jsonString);
+                const link = document.createElement('a');
+                link.href = dataStr;
+                link.download = 'sticky_notes.json';
+                link.click();
+                menu.remove();
+            };
+            menu.appendChild(exportJsonItem);
 
             // Zoom Controls
             const zoomItem = document.createElement('div');
@@ -1020,8 +1112,8 @@
             menu.style.top = `${e.pageY}px`;
             document.body.appendChild(menu);
 
-            const closeMenu = (e) => {
-                if (!menu.contains(e.target)) {
+            const closeMenu = (ev) => {
+                if (!menu.contains(ev.target)) {
                     menu.remove();
                     document.removeEventListener('click', closeMenu);
                 }
@@ -1031,13 +1123,15 @@
 
         function parseAndCreateNotes(csvData) {
             const lines = csvData.split('\n');
-            // Remove the header
+            // Remove the header line
             lines.shift();
+
             lines.forEach(line => {
                 // Skip empty lines
                 if (line.trim() === '') return;
 
-                // Regex to parse CSV line
+                // Regex to parse CSV line:
+                // "Type","Content","URL",X,Y,Width,Height,"Color"
                 const regex = /^"([^"]*)","((?:[^"]|"")*)","((?:[^"]|"")*)",(\d+),(\d+),(\d+),(\d+),"((?:[^"]|"")*)"$/;
                 const match = line.match(regex);
                 if (match) {
@@ -1081,14 +1175,12 @@
                     color: note.style.backgroundColor,
                     type: note.dataset.type || 'regular'
                 };
-
                 if (noteData.type === 'browser') {
                     const urlBar = note.querySelector('.url-bar');
                     noteData.url = urlBar.value;
                 } else {
                     noteData.content = note.querySelector('.note-content').innerHTML;
                 }
-
                 return noteData;
             });
             localStorage.setItem('stickyNotes', JSON.stringify(notesData));
@@ -1127,7 +1219,8 @@
             let startX, startY;
 
             document.addEventListener('mousedown', (e) => {
-                if (e.button === 0 && (e.target === document.body || e.target.id === 'notes-container')) { // Left mouse button
+                // Only start panning if user left-clicked on the background
+                if (e.button === 0 && (e.target === document.body || e.target.id === 'notes-container')) {
                     isPanning = true;
                     document.body.style.cursor = 'grabbing';
                     startX = e.clientX - panX;
@@ -1198,7 +1291,7 @@
                 container.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
                 saveZoomLevel();
 
-                // Update zoom label if menu is open
+                // If the context menu is open and has a zoom label, update it
                 const zoomLabel = document.querySelector('.zoom-label');
                 if (zoomLabel) {
                     zoomLabel.value = `${Math.round(zoomLevel * 100)}%`;
